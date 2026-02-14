@@ -1,0 +1,31 @@
+{
+    "name": "opencompanyapp/ai-tool-google",
+    "description": "Google Calendar and Gmail AI tools for Laravel AI SDK. Part of the OpenCompany AI tool ecosystem.",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "OpenCompany",
+            "homepage": "https://github.com/OpenCompanyApp"
+        }
+    ],
+    "keywords": ["laravel", "ai", "tools", "google", "calendar", "gmail", "opencompany"],
+    "require": {
+        "php": "^8.2",
+        "opencompanyapp/integration-core": "^2.0 || @dev",
+        "laravel/ai": "^0.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "OpenCompany\\AiToolGoogle\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "OpenCompany\\AiToolGoogle\\AiToolGoogleServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
