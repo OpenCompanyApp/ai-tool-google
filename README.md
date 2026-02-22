@@ -1,10 +1,10 @@
 # Google AI Tools
 
-Google Calendar and Gmail integration for the Laravel AI SDK. Part of the **OpenCompany** AI tool ecosystem — an open platform where AI agents collaborate with humans to run organizations.
+Google Calendar, Gmail, Google Drive, Google Contacts, Google Sheets, Google Search Console, Google Tasks, Google Analytics, Google Docs, and Google Forms integration for the Laravel AI SDK. Part of the **OpenCompany** AI tool ecosystem — an open platform where AI agents collaborate with humans to run organizations.
 
 ## Integrations
 
-This package registers **two separate integrations**, each appearing independently on the integrations page:
+This package registers **ten separate integrations**, each appearing independently on the integrations page:
 
 ### Google Calendar (3 tools)
 
@@ -23,6 +23,63 @@ This package registers **two separate integrations**, each appearing independent
 | `gmail_send` | write | Send emails or create/send drafts |
 | `gmail_manage` | write | Labels, read/unread, trash, and archive |
 
+### Google Drive (3 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_drive_search` | read | Search and retrieve files |
+| `google_drive_manage` | write | Create, rename, move, copy, and delete files |
+| `google_drive_share` | write | Share files and manage permissions |
+
+### Google Contacts (2 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_contacts_search` | read | Search, list, and look up contacts |
+| `google_contacts_manage` | write | Create, update, and delete contacts |
+
+### Google Sheets (3 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_sheets_read` | read | Read spreadsheet data, metadata, and search |
+| `google_sheets_write` | write | Create spreadsheets and write data |
+| `google_sheets_manage` | write | Manage sheets, rows, columns, sorting, and filters |
+
+### Google Search Console (2 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_search_console_query` | read | Search performance, URL inspection, and sitemaps |
+| `google_search_console_manage` | write | Submit sitemaps and manage site properties |
+
+### Google Tasks (2 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_tasks_read` | read | List task lists and tasks, get task details |
+| `google_tasks_manage` | write | Create, update, complete, delete, and organize tasks |
+
+### Google Analytics (1 tool)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_analytics_query` | read | Website traffic reports, realtime data, and metadata discovery |
+
+### Google Docs (2 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_docs_read` | read | Read document content, structure, and search text |
+| `google_docs_write` | write | Create, edit, format, and manage documents |
+
+### Google Forms (2 tools)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `google_forms_read` | read | Read form structure and responses |
+| `google_forms_write` | write | Create, edit, and manage forms |
+
 ## Installation
 
 ```bash
@@ -33,7 +90,7 @@ The service provider is auto-discovered by Laravel.
 
 ## Configuration
 
-Each integration requires its own Google Cloud OAuth credentials:
+All integrations share the same Google Cloud OAuth credentials (Client ID and Secret only need to be entered once):
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
@@ -44,7 +101,7 @@ Each integration requires its own Google Cloud OAuth credentials:
 ### Setup
 
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable the **Google Calendar API** and/or **Gmail API**
+2. Enable the **Google Calendar API**, **Gmail API**, **Google Drive API**, **People API**, **Google Sheets API**, **Google Search Console API**, **Google Tasks API**, **Google Analytics Data API**, **Google Docs API**, and/or **Google Forms API**
 3. Create OAuth 2.0 credentials (Web application type)
 4. Add the redirect URI: `{your-domain}/api/integrations/google/oauth/callback`
 5. Enter Client ID and Secret in Settings → Integrations

@@ -39,13 +39,18 @@ class GmailService
     /**
      * Get a single message.
      *
+     * @param  array<int, string>|null  $metadataHeaders  Headers to include when format is 'metadata' (e.g., ['From', 'Subject'])
      * @return array<string, mixed>
      */
-    public function getMessage(string $messageId, string $format = 'full'): array
+    public function getMessage(string $messageId, string $format = 'full', ?array $metadataHeaders = null): array
     {
-        return $this->client->get(self::BASE_URL . "/users/me/messages/{$messageId}", [
-            'format' => $format,
-        ]);
+        $params = ['format' => $format];
+
+        if ($metadataHeaders !== null && $format === 'metadata') {
+            $params['metadataHeaders'] = implode(',', $metadataHeaders);
+        }
+
+        return $this->client->get(self::BASE_URL . "/users/me/messages/{$messageId}", $params);
     }
 
     /**

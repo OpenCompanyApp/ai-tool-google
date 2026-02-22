@@ -67,6 +67,32 @@ class GoogleClient
     }
 
     /**
+     * GET that returns the raw response body (for non-JSON endpoints like Drive export).
+     *
+     * @param  array<string, mixed>  $query
+     */
+    public function getRaw(string $url, array $query = []): string
+    {
+        $this->ensureValidToken();
+
+        $http = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->accessToken,
+        ])->timeout(30);
+
+        if (! empty($query)) {
+            $http = $http->withQueryParameters($query);
+        }
+
+        $response = $http->get($url);
+
+        if (! $response->successful()) {
+            $this->handleError('GET', $url, $response);
+        }
+
+        return $response->body();
+    }
+
+    /**
      * POST with a raw body string (for Gmail send).
      *
      * @return array<string, mixed>

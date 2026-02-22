@@ -5,9 +5,14 @@ namespace OpenCompany\AiToolGoogle;
 use Illuminate\Support\Facades\Http;
 use Laravel\Ai\Contracts\Tool;
 use OpenCompany\AiToolGoogle\Services\GoogleCalendarService;
-use OpenCompany\AiToolGoogle\Tools\GoogleCalendarEvent;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarCreateEvent;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarDeleteEvent;
 use OpenCompany\AiToolGoogle\Tools\GoogleCalendarFreeBusy;
-use OpenCompany\AiToolGoogle\Tools\GoogleCalendarList;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarGetEvent;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarListCalendars;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarListEvents;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarQuickAdd;
+use OpenCompany\AiToolGoogle\Tools\GoogleCalendarUpdateEvent;
 use OpenCompany\IntegrationCore\Contracts\ConfigurableIntegration;
 use OpenCompany\IntegrationCore\Contracts\ToolProvider;
 
@@ -49,7 +54,7 @@ class GoogleCalendarToolProvider implements ToolProvider, ConfigurableIntegratio
                 'type' => 'text',
                 'label' => 'Client ID',
                 'placeholder' => 'Your Google Cloud OAuth Client ID',
-                'hint' => 'From <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> &rarr; Credentials &rarr; OAuth 2.0 Client IDs. Enable the <strong>Google Calendar API</strong> first.',
+                'hint' => 'From <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> &rarr; Credentials &rarr; OAuth 2.0 Client IDs. Shared across all Google integrations &mdash; only needs to be entered once.',
                 'required' => true,
             ],
             [
@@ -120,19 +125,54 @@ class GoogleCalendarToolProvider implements ToolProvider, ConfigurableIntegratio
     public function tools(): array
     {
         return [
-            'google_calendar_list' => [
-                'class' => GoogleCalendarList::class,
+            'google_calendar_list_calendars' => [
+                'class' => GoogleCalendarListCalendars::class,
                 'type' => 'read',
-                'name' => 'List Calendars & Events',
-                'description' => 'List calendars and search/list events.',
+                'name' => 'List Calendars',
+                'description' => 'List all calendars the user has access to.',
                 'icon' => 'ph:calendar-blank',
             ],
-            'google_calendar_event' => [
-                'class' => GoogleCalendarEvent::class,
+            'google_calendar_list_events' => [
+                'class' => GoogleCalendarListEvents::class,
+                'type' => 'read',
+                'name' => 'List Events',
+                'description' => 'List or search events in a calendar.',
+                'icon' => 'ph:calendar-blank',
+            ],
+            'google_calendar_get_event' => [
+                'class' => GoogleCalendarGetEvent::class,
+                'type' => 'read',
+                'name' => 'Get Event',
+                'description' => 'Get a single calendar event by ID.',
+                'icon' => 'ph:calendar-blank',
+            ],
+            'google_calendar_create_event' => [
+                'class' => GoogleCalendarCreateEvent::class,
                 'type' => 'write',
-                'name' => 'Manage Events',
-                'description' => 'Create, update, delete, or quick-add calendar events.',
+                'name' => 'Create Event',
+                'description' => 'Create a new calendar event.',
                 'icon' => 'ph:calendar-plus',
+            ],
+            'google_calendar_update_event' => [
+                'class' => GoogleCalendarUpdateEvent::class,
+                'type' => 'write',
+                'name' => 'Update Event',
+                'description' => 'Update an existing calendar event.',
+                'icon' => 'ph:pencil-simple',
+            ],
+            'google_calendar_delete_event' => [
+                'class' => GoogleCalendarDeleteEvent::class,
+                'type' => 'write',
+                'name' => 'Delete Event',
+                'description' => 'Delete a calendar event.',
+                'icon' => 'ph:trash',
+            ],
+            'google_calendar_quick_add' => [
+                'class' => GoogleCalendarQuickAdd::class,
+                'type' => 'write',
+                'name' => 'Quick Add Event',
+                'description' => 'Create an event from natural language text.',
+                'icon' => 'ph:lightning',
             ],
             'google_calendar_freebusy' => [
                 'class' => GoogleCalendarFreeBusy::class,
