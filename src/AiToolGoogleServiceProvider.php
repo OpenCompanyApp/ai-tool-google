@@ -129,7 +129,7 @@ class AiToolGoogleServiceProvider extends ServiceProvider
     private function registerRoutes(): void
     {
         Route::prefix('api/integrations/google/oauth')
-            ->middleware('web')
+            ->middleware(['web', 'auth'])
             ->group(function () {
                 Route::get('authorize', [GoogleOAuthController::class, 'authorize']);
                 Route::get('callback', [GoogleOAuthController::class, 'callback']);

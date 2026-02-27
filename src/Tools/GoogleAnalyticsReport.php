@@ -71,7 +71,7 @@ class GoogleAnalyticsReport implements Tool
     }
 
     /**
-     * Format a report response as a compact text table.
+     * Format a report response as structured JSON.
      *
      * @param  array<string, mixed>  $result
      * @param  array<string, mixed>  $params
@@ -82,54 +82,30 @@ class GoogleAnalyticsReport implements Tool
         $dimensionHeaders = $result['dimensionHeaders'] ?? [];
         $metricHeaders = $result['metricHeaders'] ?? [];
 
-        $startDate = $params['startDate'] ?? '28daysAgo';
-        $endDate = $params['endDate'] ?? 'yesterday';
-        $compareStart = $params['compareStartDate'] ?? '';
-        $compareEnd = $params['compareEndDate'] ?? '';
-        $hasComparison = $compareStart !== '' && $compareEnd !== '';
-        $limit = (int) ($params['limit'] ?? 10);
-
-        // Header
-        $header = "Report: {$startDate} to {$endDate}";
-        if ($hasComparison) {
-            $header .= " vs {$compareStart} to {$compareEnd}";
-        }
-
-        if (empty($rows)) {
-            return "{$header}\n\nNo data found for this query.";
-        }
-
         $dimNames = array_map(fn (array $h) => $h['name'] ?? '', $dimensionHeaders);
         $metricNames = array_map(fn (array $h) => $h['name'] ?? '', $metricHeaders);
 
-        // No dimensions — aggregate-only format
-        if (empty($dimNames)) {
-            $lines = [$header, ''];
-            $row = $rows[0];
-            $metricValues = $row['metricValues'] ?? [];
+        $response = [
+            'dateRange' => [
+                'startDate' => $params['startDate'] ?? '28daysAgo',
+                'endDate' => $params['endDate'] ?? 'yesterday',
+            ],
+        ];
 
-            if ($hasComparison && count($rows) >= 1) {
-                // With comparison, each metric has two values (current period at index 0)
-                foreach ($metricNames as $i => $name) {
-                    $current = $metricValues[$i]['value'] ?? '0';
-                    $lines[] = "{$name}: " . $this->formatNumber($current);
-                }
-
-                // Check for second date range row
-                if (isset($rows[0]['metricValues']) && count($result['rows'] ?? []) > 0) {
-                    $this->appendComparisonTotals($lines, $result, $metricNames);
-                }
-            } else {
-                foreach ($metricNames as $i => $name) {
-                    $value = $metricValues[$i]['value'] ?? '0';
-                    $lines[] = "{$name}: " . $this->formatNumber($value);
-                }
-            }
-
-            return implode("\n", $lines);
+        $compareStart = $params['compareStartDate'] ?? '';
+        $compareEnd = $params['compareEndDate'] ?? '';
+        if ($compareStart !== '' && $compareEnd !== '') {
+            $response['comparisonRange'] = [
+                'startDate' => $compareStart,
+                'endDate' => $compareEnd,
+            ];
         }
 
-        // With dimensions — table format
+        if (empty($rows)) {
+            $response['rows'] = [];
+            return json_encode($response, JSON_PRETTY_PRINT);
+        }
+
         $data = [];
         foreach ($rows as $row) {
             $entry = [];
@@ -139,145 +115,49 @@ class GoogleAnalyticsReport implements Tool
             }
             $metricValues = $row['metricValues'] ?? [];
             foreach ($metricNames as $i => $name) {
-                $entry[$name] = $metricValues[$i]['value'] ?? '0';
+                $raw = $metricValues[$i]['value'] ?? '0';
+                $entry[$name] = is_numeric($raw) ? (str_contains($raw, '.') ? (float) $raw : (int) $raw) : $raw;
             }
             $data[] = $entry;
         }
 
-        // Build text table
-        $allCols = array_merge($dimNames, $metricNames);
-        $widths = [];
-        foreach ($allCols as $col) {
-            $widths[$col] = mb_strlen($col);
-        }
-        foreach ($data as $row) {
-            foreach ($allCols as $col) {
-                $val = in_array($col, $metricNames, true)
-                    ? $this->formatNumber($row[$col] ?? '0')
-                    : ($row[$col] ?? '');
-                $len = mb_strlen($val);
-                if ($len > $widths[$col]) {
-                    $widths[$col] = $len;
-                }
-            }
-        }
-
-        // Cap column widths at 40 characters
-        foreach ($widths as $col => $w) {
-            if ($w > 40) {
-                $widths[$col] = 40;
-            }
-        }
-
-        $lines = [$header, ''];
-
-        // Header row
-        $headerParts = [];
-        $sepParts = [];
-        foreach ($allCols as $col) {
-            $isMetric = in_array($col, $metricNames, true);
-            $w = $widths[$col];
-            $headerParts[] = $isMetric ? str_pad($col, $w, ' ', STR_PAD_LEFT) : str_pad($col, $w);
-            $sepParts[] = str_repeat('-', $w);
-        }
-        $lines[] = implode(' | ', $headerParts);
-        $lines[] = implode('-|-', $sepParts);
-
-        // Data rows
-        foreach ($data as $row) {
-            $parts = [];
-            foreach ($allCols as $col) {
-                $isMetric = in_array($col, $metricNames, true);
-                $w = $widths[$col];
-                $val = $isMetric
-                    ? $this->formatNumber($row[$col] ?? '0')
-                    : ($row[$col] ?? '');
-                if (mb_strlen($val) > $w) {
-                    $val = mb_substr($val, 0, $w - 1) . '~';
-                }
-                $parts[] = $isMetric ? str_pad($val, $w, ' ', STR_PAD_LEFT) : str_pad($val, $w);
-            }
-            $lines[] = implode(' | ', $parts);
-        }
+        $response['dimensions'] = $dimNames;
+        $response['metrics'] = $metricNames;
+        $response['rows'] = $data;
+        $response['rowCount'] = count($data);
 
         // Totals
         $totals = $result['totals'] ?? [];
         if (! empty($totals)) {
-            $totalRow = $totals[0] ?? [];
-            $totalMetrics = $totalRow['metricValues'] ?? [];
-            $totalParts = [];
+            $totalRow = $totals[0]['metricValues'] ?? [];
+            $totalData = [];
             foreach ($metricNames as $i => $name) {
-                $totalParts[] = "{$name}=" . $this->formatNumber($totalMetrics[$i]['value'] ?? '0');
+                $raw = $totalMetrics[$i]['value'] ?? $totalRow[$i]['value'] ?? '0';
+                $totalData[$name] = is_numeric($raw) ? (str_contains($raw, '.') ? (float) $raw : (int) $raw) : $raw;
             }
-            $lines[] = '';
-            $lines[] = 'Totals: ' . implode('  ', $totalParts);
-        }
+            $response['totals'] = $totalData;
 
-        $lines[] = count($data) . ' rows returned (limit: ' . $limit . ')';
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * Append comparison totals when two date ranges are used.
-     *
-     * @param  array<int, string>  $lines
-     * @param  array<string, mixed>  $result
-     * @param  array<int, string>  $metricNames
-     */
-    private function appendComparisonTotals(array &$lines, array $result, array $metricNames): void
-    {
-        $totals = $result['totals'] ?? [];
-        if (count($totals) < 2) {
-            return;
-        }
-
-        $currentTotals = $totals[0]['metricValues'] ?? [];
-        $previousTotals = $totals[1]['metricValues'] ?? [];
-
-        $lines[] = '';
-        $lines[] = 'Comparison:';
-        foreach ($metricNames as $i => $name) {
-            $current = (float) ($currentTotals[$i]['value'] ?? 0);
-            $previous = (float) ($previousTotals[$i]['value'] ?? 0);
-            $change = $previous > 0
-                ? round(($current - $previous) / $previous * 100, 1)
-                : ($current > 0 ? 100.0 : 0.0);
-            $sign = $change >= 0 ? '+' : '';
-            $lines[] = "  {$name}: " . $this->formatNumber((string) $current) . ' vs ' . $this->formatNumber((string) $previous) . " ({$sign}{$change}%)";
-        }
-    }
-
-    /**
-     * Format a numeric value for display.
-     */
-    private function formatNumber(string $value): string
-    {
-        // Percentage values (bounceRate, engagementRate, etc.)
-        if (str_contains($value, '.') && (float) $value <= 1.0 && (float) $value >= 0.0 && strlen($value) <= 8) {
-            // Could be a rate (0-1 range) — keep as-is with rounding
-            $float = (float) $value;
-            if ($float === 0.0 || $float === 1.0) {
-                return $value;
-            }
-
-            return (string) round($float, 4);
-        }
-
-        // Regular floats
-        if (str_contains($value, '.')) {
-            return (string) round((float) $value, 2);
-        }
-
-        // Integers with thousands separator
-        if (is_numeric($value)) {
-            $int = (int) $value;
-            if (abs($int) >= 1000) {
-                return number_format($int);
+            // Comparison totals
+            if (count($totals) >= 2) {
+                $prevRow = $totals[1]['metricValues'] ?? [];
+                $comparison = [];
+                foreach ($metricNames as $i => $name) {
+                    $current = (float) ($totalRow[$i]['value'] ?? 0);
+                    $previous = (float) ($prevRow[$i]['value'] ?? 0);
+                    $change = $previous > 0
+                        ? round(($current - $previous) / $previous * 100, 1)
+                        : ($current > 0 ? 100.0 : 0.0);
+                    $comparison[$name] = [
+                        'current' => $current,
+                        'previous' => $previous,
+                        'changePercent' => $change,
+                    ];
+                }
+                $response['comparison'] = $comparison;
             }
         }
 
-        return $value;
+        return json_encode($response, JSON_PRETTY_PRINT);
     }
 
     /**

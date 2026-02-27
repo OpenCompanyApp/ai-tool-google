@@ -3,6 +3,7 @@
 namespace OpenCompany\AiToolGoogle;
 
 use App\Models\IntegrationSetting;
+use App\Models\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Http;
@@ -29,16 +30,19 @@ class GoogleOAuthController extends Controller
      */
     public function authorize(Request $request): \Illuminate\Http\RedirectResponse
     {
+        $workspaceSlug = $this->resolveWorkspaceSlug();
+        $request->session()->put('google_oauth_workspace_slug', $workspaceSlug);
+
         $service = $request->query('service', '');
         if (! is_string($service) || ! isset(self::SCOPES[$service])) {
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', 'Invalid Google service. Expected google_calendar or gmail.');
         }
 
         $credentials = $this->resolveClientCredentials($service);
 
         if (! $credentials) {
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', 'Google Client ID is not configured. Save your Client ID first.');
         }
 
@@ -70,14 +74,15 @@ class GoogleOAuthController extends Controller
     {
         $storedState = $request->session()->pull('google_oauth_state');
         $service = $request->session()->pull('google_oauth_service');
+        $workspaceSlug = $request->session()->pull('google_oauth_workspace_slug');
 
         if (! $storedState || $storedState !== $request->input('state')) {
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', 'Invalid OAuth state. Please try connecting again.');
         }
 
         if (! $service || ! isset(self::SCOPES[$service])) {
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', 'Invalid OAuth session. Please try connecting again.');
         }
 
@@ -85,13 +90,13 @@ class GoogleOAuthController extends Controller
         if (! $code) {
             $error = $request->input('error_description', $request->input('error', 'No authorization code received.'));
 
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', "Google authorization failed: {$error}");
         }
 
         $credentials = $this->resolveClientCredentials($service);
         if (! $credentials) {
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', 'Integration not found. Save your Client ID and Secret first.');
         }
 
@@ -99,6 +104,9 @@ class GoogleOAuthController extends Controller
         $setting = IntegrationSetting::firstOrNew(['integration_id' => $service]);
         if (! $setting->id) {
             $setting->id = Str::uuid()->toString();
+            if ($workspaceId = session('current_workspace_id')) {
+                $setting->workspace_id = $workspaceId;
+            }
         }
 
         $clientId = $credentials['client_id'];
@@ -118,7 +126,7 @@ class GoogleOAuthController extends Controller
             if (! $tokenResponse->successful()) {
                 $error = $tokenResponse->json('error_description') ?? $tokenResponse->json('error') ?? $tokenResponse->body();
 
-                return redirect('/settings?tab=integrations')
+                return redirect($this->settingsUrl($workspaceSlug))
                     ->with('error', 'Failed to exchange token: ' . (is_string($error) ? $error : json_encode($error)));
             }
 
@@ -128,7 +136,7 @@ class GoogleOAuthController extends Controller
             $expiresIn = (int) ($tokenData['expires_in'] ?? 3600);
 
             if (! $accessToken) {
-                return redirect('/settings?tab=integrations')
+                return redirect($this->settingsUrl($workspaceSlug))
                     ->with('error', 'No access token in response.');
             }
 
@@ -161,10 +169,10 @@ class GoogleOAuthController extends Controller
             $serviceName = $serviceNames[$service];
             $emailInfo = $connectedEmail ? " ({$connectedEmail})" : '';
 
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('success', "{$serviceName} connected successfully{$emailInfo}.");
         } catch (\Throwable $e) {
-            return redirect('/settings?tab=integrations')
+            return redirect($this->settingsUrl($workspaceSlug))
                 ->with('error', 'OAuth token exchange failed: ' . $e->getMessage());
         }
     }
@@ -209,5 +217,30 @@ class GoogleOAuthController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Resolve the current workspace slug from session.
+     */
+    private function resolveWorkspaceSlug(): ?string
+    {
+        $workspaceId = session('current_workspace_id');
+        if ($workspaceId) {
+            return Workspace::where('id', $workspaceId)->value('slug');
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the settings URL with workspace prefix.
+     */
+    private function settingsUrl(?string $workspaceSlug): string
+    {
+        if ($workspaceSlug) {
+            return "/w/{$workspaceSlug}/settings?tab=integrations";
+        }
+
+        return '/settings?tab=integrations';
     }
 }

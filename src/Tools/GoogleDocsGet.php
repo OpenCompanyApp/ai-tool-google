@@ -61,37 +61,40 @@ class GoogleDocsGet implements Tool
         $structure = $this->service->extractStructure($document);
 
         if (empty($structure)) {
-            return "Document: \"$title\" (id: $docId)\n\nThis document is empty.";
+            return json_encode(['title' => $title, 'documentId' => $docId, 'structure' => []], JSON_PRETTY_PRINT);
         }
 
-        $lines = ["Document: \"$title\" (id: $docId)", '', 'Structure:'];
-
         $maxIndex = 0;
+        $elements = [];
         foreach ($structure as $item) {
-            $startIndex = (int) $item['startIndex'];
             $endIndex = (int) $item['endIndex'];
-            $type = (string) $item['type'];
-            $text = (string) $item['text'];
-
             if ($endIndex > $maxIndex) {
                 $maxIndex = $endIndex;
             }
 
-            if ($type === 'TABLE') {
-                $rows = (int) ($item['rows'] ?? 0);
-                $columns = (int) ($item['columns'] ?? 0);
-                $lines[] = "[{$startIndex}-{$endIndex}] TABLE: {$rows} rows x {$columns} columns";
+            $element = [
+                'startIndex' => (int) $item['startIndex'],
+                'endIndex' => $endIndex,
+                'type' => (string) $item['type'],
+            ];
+
+            if ($item['type'] === 'TABLE') {
+                $element['rows'] = (int) ($item['rows'] ?? 0);
+                $element['columns'] = (int) ($item['columns'] ?? 0);
             } else {
-                // Truncate text preview to 80 chars
-                $preview = mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '...' : $text;
-                $lines[] = "[{$startIndex}-{$endIndex}] {$type}: \"$preview\"";
+                $text = (string) $item['text'];
+                $element['text'] = mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '...' : $text;
             }
+
+            $elements[] = $element;
         }
 
-        $lines[] = '';
-        $lines[] = "Total: {$maxIndex} characters";
-
-        return implode("\n", $lines);
+        return json_encode([
+            'title' => $title,
+            'documentId' => $docId,
+            'totalCharacters' => $maxIndex,
+            'structure' => $elements,
+        ], JSON_PRETTY_PRINT);
     }
 
     /**
