@@ -138,6 +138,18 @@ class GmailService
     }
 
     /**
+     * Download an attachment's raw bytes.
+     */
+    public function getAttachment(string $messageId, string $attachmentId): string
+    {
+        $response = $this->client->get(
+            self::BASE_URL . "/users/me/messages/{$messageId}/attachments/{$attachmentId}"
+        );
+
+        return self::base64UrlDecode($response['data'] ?? '');
+    }
+
+    /**
      * Build a base64url-encoded RFC 2822 message.
      *
      * @param  array<string, string|null>  $options  cc, bcc, inReplyTo, references

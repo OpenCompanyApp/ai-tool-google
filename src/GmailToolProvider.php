@@ -15,11 +15,13 @@ use OpenCompany\AiToolGoogle\Tools\GmailRemoveLabels;
 use OpenCompany\AiToolGoogle\Tools\GmailReply;
 use OpenCompany\AiToolGoogle\Tools\GmailCountBySender;
 use OpenCompany\AiToolGoogle\Tools\GmailListLabels;
+use OpenCompany\AiToolGoogle\Tools\GmailSaveAttachment;
 use OpenCompany\AiToolGoogle\Tools\GmailSearchEmails;
 use OpenCompany\AiToolGoogle\Tools\GmailSendDraft;
 use OpenCompany\AiToolGoogle\Tools\GmailSendEmail;
 use OpenCompany\AiToolGoogle\Tools\GmailTrash;
 use OpenCompany\AiToolGoogle\Tools\GmailUntrash;
+use OpenCompany\IntegrationCore\Contracts\AgentFileStorage;
 use OpenCompany\IntegrationCore\Contracts\ConfigurableIntegration;
 use OpenCompany\IntegrationCore\Contracts\ToolProvider;
 
@@ -234,6 +236,13 @@ class GmailToolProvider implements ToolProvider, ConfigurableIntegration
                 'description' => 'Remove labels from messages.',
                 'icon' => 'ph:tag',
             ],
+            'gmail_save_attachment' => [
+                'class' => GmailSaveAttachment::class,
+                'type' => 'write',
+                'name' => 'Save Attachment',
+                'description' => 'Download and save an email attachment to workspace files.',
+                'icon' => 'ph:paperclip',
+            ],
         ];
     }
 
@@ -246,6 +255,17 @@ class GmailToolProvider implements ToolProvider, ConfigurableIntegration
     public function createTool(string $class, array $context = []): Tool
     {
         $service = app(GmailService::class);
+
+        if ($class === GmailSaveAttachment::class) {
+            $fileStorage = app()->bound(AgentFileStorage::class) ? app(AgentFileStorage::class) : null;
+            $agent = $context['agent'] ?? null;
+
+            if (! $fileStorage || ! $agent) {
+                throw new \RuntimeException('GmailSaveAttachment requires AgentFileStorage and an agent context.');
+            }
+
+            return new $class($service, $fileStorage, $agent);
+        }
 
         return new $class($service);
     }
